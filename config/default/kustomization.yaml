@@ -12,5 +12,5 @@ resources:
 
 images:
 - name: controller
-  newName: ghcr.io/LeMyst/downscale-policy
+  newName: ghcr.io/lemyst/downscale-policy
   newTag: latest

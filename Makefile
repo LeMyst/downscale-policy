@@ -1,5 +1,5 @@
 # Image URL to use for all building/pushing image targets
-IMG ?= ghcr.io/LeMyst/downscale-policy:latest
+IMG ?= ghcr.io/lemyst/downscale-policy:latest
 
 CONTROLLER_GEN_VERSION ?= v0.19.0
 CONTROLLER_GEN = go run sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)

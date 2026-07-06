@@ -10,7 +10,7 @@ annotating the Namespace object directly.
 ```sh
 helm install downscale-policy ./charts/downscale-policy \
   --namespace downscale-policy-system --create-namespace \
-  --set image.repository=ghcr.io/LeMyst/downscale-policy \
+  --set image.repository=ghcr.io/lemyst/downscale-policy \
   --set image.tag=0.1.0
 ```
 
@@ -30,7 +30,7 @@ kubectl apply -f charts/downscale-policy/crds/downscaler.io_downscalepolicies.ya
 | Key | Default | Description |
 |---|---|---|
 | `replicaCount` | `1` | Manager replicas (leader election makes >1 safe) |
-| `image.repository` | `ghcr.io/LeMyst/downscale-policy` | Manager image |
+| `image.repository` | `ghcr.io/lemyst/downscale-policy` | Manager image |
 | `image.tag` | `""` (chart appVersion) | Image tag |
 | `image.pullPolicy` | `IfNotPresent` | Pull policy |
 | `imagePullSecrets` | `[]` | Pull secrets |

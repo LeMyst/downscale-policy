@@ -3,7 +3,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/LeMyst/downscale-policy
+  repository: ghcr.io/lemyst/downscale-policy
   # Defaults to the chart appVersion when empty.
   tag: ""
   pullPolicy: IfNotPresent
