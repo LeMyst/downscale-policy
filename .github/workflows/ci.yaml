@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Verify generated code and manifests are up to date
+        run: |
+          make generate manifests
+          git diff --exit-code
+      - name: go vet
+        run: go vet ./...
+      - name: Run tests
+        run: go test -race -coverprofile=cover.out ./...
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.4.0
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint chart
+        run: helm lint --strict charts/downscale-policy
+      - name: Render chart (default and toggled values)
+        run: |
+          helm template test charts/downscale-policy --include-crds > /dev/null
+          helm template test charts/downscale-policy --include-crds \
+            --set metrics.enabled=true \
+            --set rbac.aggregateToDefaultRoles=false \
+            --set leaderElection.enabled=false > /dev/null
+
+  e2e:
+    name: E2E on kind
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build operator image
+        run: docker build -t downscale-policy:e2e .
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: e2e
+      - name: Load image into kind
+        run: kind load docker-image downscale-policy:e2e --name e2e
+      - name: Install chart
+        run: |
+          helm install downscale-policy charts/downscale-policy \
+            --namespace downscale-policy-system --create-namespace \
+            --set image.repository=downscale-policy \
+            --set image.tag=e2e \
+            --set image.pullPolicy=Never \
+            --wait --timeout 120s
+      - name: Run end-to-end checks
+        run: |
+          set -euo pipefail
+
+          kubectl create namespace team-a
+          kubectl apply -n team-a -f - <<'EOF'
+          apiVersion: downscaler.io/v1
+          kind: DownscalePolicy
+          metadata:
+            name: office-hours
+          spec:
+            uptime: "Mon-Fri 08:00-19:00 Europe/Paris"
+            downtimeReplicas: 0
+          EOF
+
+          echo "--- policy becomes Ready and annotations are applied"
+          kubectl wait -n team-a downscalepolicy/office-hours --for=condition=Ready --timeout=60s
+          uptime="$(kubectl get namespace team-a -o jsonpath="{.metadata.annotations['downscaler/uptime']}")"
+          [ "$uptime" = "Mon-Fri 08:00-19:00 Europe/Paris" ] || { echo "unexpected uptime: $uptime"; exit 1; }
+
+          echo "--- manual drift is reverted"
+          kubectl annotate namespace team-a downscaler/uptime=always --overwrite
+          for i in $(seq 1 30); do
+            uptime="$(kubectl get namespace team-a -o jsonpath="{.metadata.annotations['downscaler/uptime']}")"
+            [ "$uptime" = "Mon-Fri 08:00-19:00 Europe/Paris" ] && break
+            sleep 2
+          done
+          [ "$uptime" = "Mon-Fri 08:00-19:00 Europe/Paris" ] || { echo "drift was not reverted: $uptime"; exit 1; }
+
+          echo "--- a second policy is marked Failed"
+          kubectl apply -n team-a -f - <<'EOF'
+          apiVersion: downscaler.io/v1
+          kind: DownscalePolicy
+          metadata:
+            name: weekend-off
+          spec:
+            downtime: "Sat-Sun 00:00-24:00 UTC"
+          EOF
+          kubectl wait -n team-a downscalepolicy/weekend-off --for=jsonpath='{.status.phase}'=Failed --timeout=60s
+
+          echo "--- deleting the active policy promotes the other one"
+          kubectl delete -n team-a downscalepolicy/office-hours --timeout=60s
+          kubectl wait -n team-a downscalepolicy/weekend-off --for=condition=Ready --timeout=60s
+          downtime=""
+          for i in $(seq 1 30); do
+            downtime="$(kubectl get namespace team-a -o jsonpath="{.metadata.annotations['downscaler/downtime']}")"
+            [ "$downtime" = "Sat-Sun 00:00-24:00 UTC" ] && break
+            sleep 2
+          done
+          [ "$downtime" = "Sat-Sun 00:00-24:00 UTC" ] || { echo "promotion failed: $downtime"; exit 1; }
+          uptime="$(kubectl get namespace team-a -o jsonpath="{.metadata.annotations['downscaler/uptime']}")"
+          [ -z "$uptime" ] || { echo "stale uptime annotation after promotion: $uptime"; exit 1; }
+
+          echo "--- all end-to-end checks passed"
+      - name: Dump diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get downscalepolicies -A -o yaml || true
+          kubectl get namespace team-a -o yaml || true
+          kubectl logs -n downscale-policy-system deploy/downscale-policy --tail=200 || true
