@@ -18,7 +18,7 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -35,7 +35,7 @@ jobs:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -47,7 +47,7 @@ jobs:
     name: Helm chart
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Lint chart
         run: helm lint --strict charts/downscale-policy
       - name: Render chart (default and toggled values)
@@ -62,7 +62,7 @@ jobs:
     name: E2E on kind
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build operator image
         run: docker build -t downscale-policy:e2e .
       - name: Create kind cluster
