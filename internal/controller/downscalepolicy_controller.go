@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,7 +50,7 @@ var managedAnnotations = []string{
 type DownscalePolicyReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=downscaler.io,resources=downscalepolicies,verbs=get;list;watch;create;update;patch;delete
@@ -58,6 +58,7 @@ type DownscalePolicyReconciler struct {
 // +kubebuilder:rbac:groups=downscaler.io,resources=downscalepolicies/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile applies the oldest DownscalePolicy of a namespace to the
 // namespace's downscaler annotations and marks any younger policies as Failed.
@@ -175,8 +176,8 @@ func (r *DownscalePolicyReconciler) applyPolicy(ctx context.Context, policy *dow
 			return ctrl.Result{}, fmt.Errorf("patching namespace %q: %w", ns.Name, err)
 		}
 		log.Info("synced downscaler annotations on namespace", "namespace", ns.Name)
-		r.Recorder.Eventf(policy, corev1.EventTypeNormal, downscalerv1.ReasonAnnotationsApplied,
-			"Applied downscaler annotations to namespace %q", ns.Name)
+		r.Recorder.Eventf(policy, nil, corev1.EventTypeNormal, downscalerv1.ReasonAnnotationsApplied,
+			"SyncAnnotations", "Applied downscaler annotations to namespace %q", ns.Name)
 	}
 
 	err := r.updateStatus(ctx, policy, downscalerv1.PolicyPhaseActive, metav1.ConditionTrue,
@@ -205,7 +206,8 @@ func (r *DownscalePolicyReconciler) markConflicting(ctx context.Context, policy,
 	msg := fmt.Sprintf("namespace %q already has an active DownscalePolicy %q; only the oldest policy per namespace is applied",
 		policy.Namespace, activeName)
 	if !meta.IsStatusConditionFalse(policy.Status.Conditions, downscalerv1.ConditionReady) {
-		r.Recorder.Event(policy, corev1.EventTypeWarning, downscalerv1.ReasonConflictingPolicies, msg)
+		r.Recorder.Eventf(policy, nil, corev1.EventTypeWarning, downscalerv1.ReasonConflictingPolicies,
+			"ElectPolicy", "%s", msg)
 	}
 	err := r.updateStatus(ctx, policy, downscalerv1.PolicyPhaseFailed, metav1.ConditionFalse,
 		downscalerv1.ReasonConflictingPolicies, msg)

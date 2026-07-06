@@ -68,7 +68,7 @@ func main() {
 	if err := (&controller.DownscalePolicyReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("downscalepolicy-controller"),
+		Recorder: mgr.GetEventRecorder("downscalepolicy-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DownscalePolicy")
 		os.Exit(1)
