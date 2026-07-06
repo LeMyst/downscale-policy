@@ -1,0 +1,61 @@
+# Default values for the downscale-policy operator chart.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/LeMyst/downscale-policy
+  # Defaults to the chart appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Create the ServiceAccount the manager runs as.
+  create: true
+  # Name of the ServiceAccount; generated from the fullname when empty.
+  name: ""
+  annotations: {}
+
+rbac:
+  # Create the ClusterRole/Bindings the manager needs (namespaces,
+  # downscalepolicies, events) and the leader-election Role.
+  create: true
+  # Also aggregate DownscalePolicy permissions into the built-in
+  # edit/admin/view ClusterRoles, so users with a namespace-scoped
+  # edit/admin RoleBinding can manage the DownscalePolicy of their
+  # namespace without any extra binding. Set to false to hand out the
+  # editor/viewer ClusterRoles yourself.
+  aggregateToDefaultRoles: true
+
+leaderElection:
+  # Run with leader election so replicaCount > 1 is safe.
+  enabled: true
+
+metrics:
+  # Expose controller-runtime metrics.
+  enabled: false
+  # Address the metrics endpoint binds to when enabled.
+  bindAddress: ":8443"
+  # Serve metrics over HTTPS with self-signed certificates.
+  secure: true
+
+# Additional arguments passed to the manager binary.
+extraArgs: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+podAnnotations: {}
+podLabels: {}
+priorityClassName: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}

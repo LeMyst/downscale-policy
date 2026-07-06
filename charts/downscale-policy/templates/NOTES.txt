@@ -1,0 +1,31 @@
+downscale-policy {{ .Chart.AppVersion }} deployed in namespace {{ .Release.Namespace }}.
+
+Check that the operator is running:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Namespace users can now create a DownscalePolicy in their namespace, e.g.:
+
+  apiVersion: downscaler.io/v1
+  kind: DownscalePolicy
+  metadata:
+    name: office-hours
+  spec:
+    uptime: "Mon-Fri 07:30-19:30 Europe/Paris"
+    downtimeReplicas: 0
+
+and inspect it with:
+
+  kubectl get dsp
+
+{{- if not .Values.rbac.aggregateToDefaultRoles }}
+
+NOTE: rbac.aggregateToDefaultRoles is disabled. Bind
+{{ include "downscale-policy.fullname" . }}-editor / -viewer to your users
+explicitly, otherwise nobody but cluster admins can create DownscalePolicies.
+{{- end }}
+
+NOTE: Helm only installs CRDs from the crds/ directory on first install and
+never upgrades them. After upgrading the chart, apply CRD changes manually:
+
+  kubectl apply -f https://github.com/LeMyst/downscale-policy/raw/main/charts/downscale-policy/crds/downscaler.io_downscalepolicies.yaml

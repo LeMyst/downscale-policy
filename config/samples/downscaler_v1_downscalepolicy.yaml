@@ -1,0 +1,10 @@
+# Scale everything in the namespace down to 0 replicas outside office hours,
+# and keep it excluded from downscaling until the end of August 2026.
+apiVersion: downscaler.io/v1
+kind: DownscalePolicy
+metadata:
+  name: office-hours
+spec:
+  uptime: "Mon-Fri 07:30-19:30 Europe/Paris"
+  downtimeReplicas: 0
+  # excludeUntil: "2026-08-31"

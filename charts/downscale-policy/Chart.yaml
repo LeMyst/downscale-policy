@@ -1,0 +1,19 @@
+apiVersion: v2
+name: downscale-policy
+description: >-
+  Operator that lets namespace users manage the kube-downscaler schedule of
+  their namespace through DownscalePolicy resources, without needing edit
+  permission on the Namespace object.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.25.0-0"
+keywords:
+  - kube-downscaler
+  - downscaler
+  - autoscaling
+  - operator
+sources:
+  - https://github.com/LeMyst/downscale-policy
+maintainers:
+  - name: LeMyst

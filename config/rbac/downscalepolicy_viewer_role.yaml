@@ -1,0 +1,24 @@
+# Read-only access to DownscalePolicies, aggregated into the built-in "view"
+# ClusterRole.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: downscalepolicy-viewer-role
+  labels:
+    app.kubernetes.io/name: downscale-policy
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+- apiGroups:
+  - downscaler.io
+  resources:
+  - downscalepolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - downscaler.io
+  resources:
+  - downscalepolicies/status
+  verbs:
+  - get

@@ -1,0 +1,16 @@
+# Adds namespace to all namespaced resources.
+namespace: downscale-policy-system
+
+# Prefix for all resource names.
+namePrefix: downscale-policy-
+
+resources:
+- namespace.yaml
+- ../crd
+- ../rbac
+- ../manager
+
+images:
+- name: controller
+  newName: ghcr.io/LeMyst/downscale-policy
+  newTag: latest
