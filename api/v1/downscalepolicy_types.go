@@ -151,7 +151,3 @@ type DownscalePolicyList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DownscalePolicy `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&DownscalePolicy{}, &DownscalePolicyList{})
-}
