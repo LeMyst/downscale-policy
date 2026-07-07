@@ -18,14 +18,22 @@ and inspect it with:
 
   kubectl get dsp
 
-{{- if not .Values.rbac.aggregateToDefaultRoles }}
+{{- if not (and .Values.rbac.create .Values.rbac.userRoles) }}
+
+NOTE: the user-facing editor/viewer ClusterRoles were not created
+(rbac.create/rbac.userRoles is disabled). Grant users access to
+DownscalePolicy resources yourself, otherwise nobody but cluster admins
+can create them.
+{{- else if not .Values.rbac.aggregateToDefaultRoles }}
 
 NOTE: rbac.aggregateToDefaultRoles is disabled. Bind
 {{ include "downscale-policy.fullname" . }}-editor / -viewer to your users
 explicitly, otherwise nobody but cluster admins can create DownscalePolicies.
 {{- end }}
+{{- if not .Values.crds.install }}
 
-NOTE: Helm only installs CRDs from the crds/ directory on first install and
-never upgrades them. After upgrading the chart, apply CRD changes manually:
+NOTE: crds.install is disabled. The DownscalePolicy CRD must be installed
+separately before the operator can work:
 
-  kubectl apply -f https://github.com/LeMyst/downscale-policy/raw/main/charts/downscale-policy/crds/downscaler.io_downscalepolicies.yaml
+  kubectl apply -f https://github.com/LeMyst/downscale-policy/raw/main/charts/downscale-policy/files/crd/downscaler.io_downscalepolicies.yaml
+{{- end }}

@@ -14,16 +14,30 @@ helm install downscale-policy ./charts/downscale-policy \
   --set image.tag=0.1.0
 ```
 
-The CRD in `crds/` is installed automatically on first install.
+## CRD handling
 
-## Upgrade note (CRD)
+The DownscalePolicy CRD is rendered as a regular templated resource (not from
+the special `crds/` directory), so Helm installs **and upgrades** it with the
+release:
 
-Helm never upgrades or deletes anything under `crds/`. After upgrading the
-chart to a version with CRD changes, apply the CRD manually:
+- `crds.install=false` skips it entirely — install
+  `files/crd/downscaler.io_downscalepolicies.yaml` yourself before deploying
+  the operator.
+- `crds.keep=true` (default) annotates the CRD with
+  `helm.sh/resource-policy: keep`, so `helm uninstall` leaves the CRD — and
+  every `DownscalePolicy` in the cluster — in place. Set it to `false` if you
+  want uninstall to delete them.
+
+If you upgrade a release that originally installed the CRD from the old
+`crds/` directory, let Helm adopt it first:
 
 ```sh
-kubectl apply -f charts/downscale-policy/crds/downscaler.io_downscalepolicies.yaml
+kubectl label crd downscalepolicies.downscaler.io app.kubernetes.io/managed-by=Helm
+kubectl annotate crd downscalepolicies.downscaler.io \
+  meta.helm.sh/release-name=<release> meta.helm.sh/release-namespace=<namespace>
 ```
+
+(or set `crds.install=false` to keep managing it by hand).
 
 ## Values
 
@@ -37,7 +51,10 @@ kubectl apply -f charts/downscale-policy/crds/downscaler.io_downscalepolicies.ya
 | `serviceAccount.create` | `true` | Create the manager ServiceAccount |
 | `serviceAccount.name` | `""` | Override the ServiceAccount name |
 | `serviceAccount.annotations` | `{}` | ServiceAccount annotations |
-| `rbac.create` | `true` | Create manager + user RBAC |
+| `crds.install` | `true` | Install and upgrade the DownscalePolicy CRD with the release |
+| `crds.keep` | `true` | Keep the CRD (and all DownscalePolicies) on `helm uninstall` |
+| `rbac.create` | `true` | Create the manager RBAC (ClusterRole/Binding, leader-election Role) |
+| `rbac.userRoles` | `true` | Create the editor/viewer ClusterRoles for namespace users |
 | `rbac.aggregateToDefaultRoles` | `true` | Fold DownscalePolicy permissions into the built-in `edit`/`admin`/`view` ClusterRoles |
 | `leaderElection.enabled` | `true` | Enable leader election |
 | `metrics.enabled` | `false` | Expose controller-runtime metrics |
@@ -51,8 +68,12 @@ kubectl apply -f charts/downscale-policy/crds/downscaler.io_downscalepolicies.ya
 
 - The **manager** gets a ClusterRole for `namespaces` (get/list/watch/update/patch),
   `downscalepolicies` (+status, +finalizers) and Events.
-- With `rbac.aggregateToDefaultRoles=true` (default), any user who already has
-  a namespace-scoped `edit`/`admin` RoleBinding can create and manage the
-  `DownscalePolicy` of their namespace, and `view` users can read it — no
-  extra bindings needed. Set it to `false` and bind
-  `<release>-downscale-policy-editor` / `-viewer` yourself for tighter control.
+- **Namespace users** get `<release>-downscale-policy-editor` / `-viewer`
+  ClusterRoles (`rbac.userRoles=true`, default). Set `rbac.userRoles=false`
+  to skip them and manage user access to DownscalePolicies yourself.
+- With `rbac.aggregateToDefaultRoles=true` (default), the user roles are
+  folded into the built-in `edit`/`admin`/`view` ClusterRoles: any user who
+  already has a namespace-scoped `edit`/`admin` RoleBinding can create and
+  manage the `DownscalePolicy` of their namespace, and `view` users can read
+  it — no extra bindings needed. Set it to `false` and bind the editor/viewer
+  roles yourself for tighter control.

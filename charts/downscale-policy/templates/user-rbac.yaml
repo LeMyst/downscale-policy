@@ -1,4 +1,4 @@
-{{- if .Values.rbac.create }}
+{{- if and .Values.rbac.create .Values.rbac.userRoles }}
 # Roles for namespace users. With rbac.aggregateToDefaultRoles=true these are
 # folded into the built-in edit/admin/view ClusterRoles, so a user with a
 # namespace-scoped edit RoleBinding can manage the DownscalePolicy of their

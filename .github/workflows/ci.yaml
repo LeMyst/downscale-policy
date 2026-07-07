@@ -52,11 +52,15 @@ jobs:
         run: helm lint --strict charts/downscale-policy
       - name: Render chart (default and toggled values)
         run: |
-          helm template test charts/downscale-policy --include-crds > /dev/null
-          helm template test charts/downscale-policy --include-crds \
+          helm template test charts/downscale-policy > /dev/null
+          helm template test charts/downscale-policy \
             --set metrics.enabled=true \
             --set rbac.aggregateToDefaultRoles=false \
             --set leaderElection.enabled=false > /dev/null
+          helm template test charts/downscale-policy \
+            --set crds.install=false \
+            --set crds.keep=false \
+            --set rbac.userRoles=false > /dev/null
 
   e2e:
     name: E2E on kind

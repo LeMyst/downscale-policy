@@ -19,10 +19,23 @@ serviceAccount:
   name: ""
   annotations: {}
 
+crds:
+  # Install the DownscalePolicy CRD as part of the release (installed and
+  # upgraded by Helm). Set to false if you manage the CRD yourself; it must
+  # then exist before the operator starts.
+  install: true
+  # Annotate the CRD with helm.sh/resource-policy=keep so that
+  # `helm uninstall` leaves it (and every DownscalePolicy) in place.
+  keep: true
+
 rbac:
   # Create the ClusterRole/Bindings the manager needs (namespaces,
   # downscalepolicies, events) and the leader-election Role.
   create: true
+  # Create the editor/viewer ClusterRoles for namespace users. Set to false
+  # to manage user access to DownscalePolicies yourself. Only applies when
+  # rbac.create is true.
+  userRoles: true
   # Also aggregate DownscalePolicy permissions into the built-in
   # edit/admin/view ClusterRoles, so users with a namespace-scoped
   # edit/admin RoleBinding can manage the DownscalePolicy of their

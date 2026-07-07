@@ -16,7 +16,7 @@ manifests: ## Generate CRD and RBAC manifests into config/ and sync the CRD into
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd $(GEN_PATHS) \
 		output:crd:artifacts:config=config/crd/bases \
 		output:rbac:artifacts:config=config/rbac
-	cp config/crd/bases/downscaler.io_downscalepolicies.yaml charts/downscale-policy/crds/
+	cp config/crd/bases/downscaler.io_downscalepolicies.yaml charts/downscale-policy/files/crd/
 
 .PHONY: generate
 generate: ## Generate zz_generated.deepcopy.go.

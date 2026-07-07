@@ -1,0 +1,17 @@
+{{- if .Values.crds.install }}
+{{- /*
+The CRD lives in files/crd/ (synced from config/crd/bases by `make manifests`)
+instead of the special crds/ directory so that it can be toggled with
+crds.install and is upgraded together with the release.
+*/}}
+{{- range $path, $_ := .Files.Glob "files/crd/*.yaml" }}
+{{- $crd := $.Files.Get $path | fromYaml }}
+{{- if $.Values.crds.keep }}
+{{- $annotations := $crd.metadata.annotations | default dict }}
+{{- $noop := set $annotations "helm.sh/resource-policy" "keep" }}
+{{- $noop = set $crd.metadata "annotations" $annotations }}
+{{- end }}
+---
+{{ toYaml $crd }}
+{{- end }}
+{{- end }}

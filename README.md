@@ -87,85 +87,37 @@ helm install downscale-policy ./charts/downscale-policy \
 ```
 
 See [charts/downscale-policy/README.md](charts/downscale-policy/README.md)
-for all values (RBAC aggregation, metrics, leader election, …). Helm installs
-the CRD from the chart's `crds/` directory on first install but never
-upgrades it — apply `charts/downscale-policy/crds/*.yaml` manually after CRD
-changes.
+for all values (CRD handling, RBAC, metrics, leader election, …). Notably:
+
+- `crds.install=false` skips the CRD if you prefer to manage it yourself
+  (by default it is installed and upgraded with the release, and kept on
+  uninstall thanks to `crds.keep=true`).
+- `rbac.userRoles=false` skips the user-facing editor/viewer ClusterRoles.
 
 ### Kustomize
 
 ```sh
 make install          # CRD only
 make deploy           # CRD + RBAC + controller (edit the image in config/default/kustomization.yaml)
-# or run locally against the current kubeconfig:
-make run
 ```
 
-On Windows, the same steps without make:
+or without make:
 
-```powershell
-go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 object paths=./api/v1
-go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:roleName=manager-role crd paths=./api/v1 paths=./internal/controller output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
+```sh
 kubectl apply -k config/default
 ```
 
 ### RBAC for namespace users
 
-`config/rbac/downscalepolicy_editor_role.yaml` carries the
+With the Helm chart, the editor/viewer ClusterRoles are created by default
+and aggregated into the built-in `edit`/`admin`/`view` roles; set
+`rbac.userRoles=false` to skip them entirely, or
+`rbac.aggregateToDefaultRoles=false` to bind them explicitly yourself.
+
+With Kustomize, `config/rbac/downscalepolicy_editor_role.yaml` carries the
 `rbac.authorization.k8s.io/aggregate-to-edit` and `aggregate-to-admin` labels:
 anyone who already has a namespace-scoped `edit` or `admin` RoleBinding can
 manage the `DownscalePolicy` of their namespace with no extra bindings (and
 `view` users can read them via the viewer role). Remove the labels if you want
-to bind the roles explicitly instead.
-
-## Design decisions (vs. the initial CRD draft)
-
-- **Status describes the policy, not the workloads.** `currentReplicas`,
-  `lastScaled` and phases like `Downscaled`/`Excluded` were dropped: the
-  actual scaling is done by kube-downscaler, and this operator would have to
-  re-implement its whole schedule engine to report them truthfully. Instead
-  the status reports what the operator actually knows: `phase`
-  (`Active`/`Failed`), a standard `Ready` condition, and
-  `observedGeneration`.
-- **`gracePeriod` was removed** — `downscaler/grace-period` is only evaluated
-  on workloads by py-kube-downscaler, not on namespaces, so the field would
-  silently do nothing.
-- **`exclude` is a boolean, not a timespan** (that is what kube-downscaler
-  expects); `upscalePeriod`/`downscalePeriod` were added for parity with the
-  full namespace annotation set; `downscaleReplicas` was renamed
-  `downtimeReplicas` to match the annotation and accepts a percentage.
-- **No default for `downtimeReplicas`.** Defaulting to `0` would force the
-  annotation onto every namespace; unset means kube-downscaler's own default
-  (0) applies.
-- **Oldest policy wins, not "everything fails".** Failing *all* policies on
-  conflict would let anyone break a namespace's schedule just by creating a
-  second policy. With oldest-wins, a working policy can never be disturbed by
-  a newer one.
-- **CEL validation** requires at least one spec field, and `excludeUntil` is
-  pattern-checked. Timespan strings are not regex-validated — the
-  kube-downscaler grammar (weekday ranges, timezones, absolute ranges,
-  comma-separated lists) is too rich for a useful pattern; invalid values are
-  surfaced by kube-downscaler's own logs/events.
-
-## Development
-
-```sh
-make test        # regenerate + fmt + vet + unit tests
-go test ./...    # just the tests
-```
-
-The reconciler is covered by unit tests using the controller-runtime fake
-client (`internal/controller/downscalepolicy_controller_test.go`), including
-conflict election, drift reversion, spec changes, deletion cleanup and
-promotion of the next policy.
-
-## Project layout
-
-Standard [kubebuilder](https://book.kubebuilder.io/) v4 layout:
-
-```
-api/v1/                  CRD Go types (+ generated deepcopy)
-cmd/main.go              manager entrypoint
-internal/controller/     reconciler + tests
-config/                  kustomize manifests (crd, rbac, manager, default, samples)
-```
+to bind the roles explicitly instead, or drop the files from
+`config/rbac/kustomization.yaml` to not install them at all.
